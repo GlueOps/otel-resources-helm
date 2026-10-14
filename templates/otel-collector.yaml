@@ -5,6 +5,20 @@ metadata:
   namespace: glueops-core-monitoring
 spec:
   mode: daemonset
+  # Requests take the agent out of BestEffort QoS (first to be evicted / OOM-killed under node pressure). Only memory is
+  # limited: memory_limiter's limit_percentage is computed from the container memory limit (without one it would be a
+  # percentage of the whole node), and no CPU limit so the agent isn't throttled into dropping data.
+  resources:
+    requests:
+      cpu: {{ .Values.collector.resources.requests.cpu }}
+      memory: {{ .Values.collector.resources.requests.memory }}
+    limits:
+      memory: {{ .Values.collector.memoryLimitMiB }}Mi
+  env:
+    # 80% of the memory limit, as recommended upstream. The operator would otherwise set GOMEMLIMIT to 100% of the
+    # limit; a GOMEMLIMIT in spec.env takes precedence over the operator's.
+    - name: GOMEMLIMIT
+      value: {{ div (mul .Values.collector.memoryLimitMiB 80) 100 }}MiB
   volumes:
    - name: varlog
      hostPath:
@@ -24,8 +38,10 @@ spec:
           - parse_from: attributes["log.file.path"]
             regex: '/var/log/pods/(?P<namespace>[^_]+)_(?P<pod_name>[^_]+)_[^/]+/(?P<container_name>[^/]+)/[^/]+\.log'
             type: regex_parser
+          # resource attribute (not a log attribute) so Loki's OTLP ingestion promotes it to the k8s_namespace_name
+          # stream label, like k8s.pod.name / k8s.container.name below.
           - from: attributes["namespace"]
-            to: attributes["k8s.namespace.name"]
+            to: resource["k8s.namespace.name"]
             type: copy
           - from: attributes["pod_name"]
             to: resource["k8s.pod.name"]
@@ -76,27 +92,15 @@ spec:
           enabled: true
     processors:
       batch:
-        send_batch_max_size: 50
-        send_batch_size: 50
-        timeout: 10s
+        send_batch_max_size: 2048
+        send_batch_size: 1024
+        timeout: 1s
+      # Percentages of the container memory limit: with 512Mi, hard limit ~409Mi (data refused + forced GC) and soft
+      # limit ~281Mi (hard minus the 25% spike: data refused with retryable errors).
       memory_limiter:
         check_interval: 1s
-        limit_percentage: 90
-        spike_limit_percentage: 20
-      resource:
-        attributes:
-          - action: insert
-            from_attribute: service.name
-            key: service.name
-          - action: insert
-            key: loki.resource.labels
-            value: container, pod
-          - action: insert
-            from_attribute: k8s.container.name
-            key: container
-          - action: insert
-            from_attribute: k8s.pod.name
-            key: pod
+        limit_percentage: 80
+        spike_limit_percentage: 25
     connectors:
       spanmetrics:
         aggregation_temporality: AGGREGATION_TEMPORALITY_CUMULATIVE
@@ -128,18 +132,30 @@ spec:
                     port: 8888
       pipelines:
         logs:
+          processors:
+            - memory_limiter
+            - batch
           exporters:
             - otlphttp/loki
           receivers:
             - otlp
             - filelog/multilang
         metrics:
+          processors:
+            - memory_limiter
+            - batch
           exporters:
             - prometheusremotewrite
           receivers:
+            # otlp must be listed here too: a receiver only serves the signals of the pipelines that reference it,
+            # so without it the collector answers OTLP metric exports with gRPC Unimplemented / HTTP 404.
+            - otlp
             - prometheus
             - spanmetrics
         traces:
+          processors:
+            - memory_limiter
+            - batch
           exporters:
             - otlp/trace
             - spanmetrics

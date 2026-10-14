@@ -1,1 +1,9 @@
 captain_domain: ""
+
+collector:
+  # -- container memory limit of each collector pod (DaemonSet). memory_limiter and GOMEMLIMIT are derived from it.
+  memoryLimitMiB: 512
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
