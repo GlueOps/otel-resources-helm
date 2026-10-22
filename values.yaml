@@ -11,3 +11,16 @@ collector:
     # -- max unique span-metric dimension combinations tracked per service, in each collector pod; extra combinations go
     # to an otel.metric.overflow="true" series. 0 disables the limit.
     aggregationCardinalityLimit: 1000
+  # -- Prometheus remote-write endpoints; every metric is written to each one. One per kube-prometheus-stack replica
+  # (pod DNS through the operator's headless prometheus-operated Service), so both replicas hold the full data.
+  remoteWriteEndpoints:
+    - http://prometheus-glueops-core-kps-prometheus-0.prometheus-operated.glueops-core-monitoring.svc:9090/api/v1/write
+    - http://prometheus-glueops-core-kps-prometheus-1.prometheus-operated.glueops-core-monitoring.svc:9090/api/v1/write
+  # Cardinality guards on the metrics apps send over OTLP (not on span metrics or the collector's own metrics).
+  cardinalityGuard:
+    # -- data points with an attribute key matching this are dropped: per-entity IDs and raw URLs as labels
+    dropAttributeKeysRegex: '(?i)^(.*[._-])?(user|session|request|trace|span|order|customer|cart|transaction|correlation|message)[._-]?id$|^(url\.(full|path|query)|http\.(url|target))$'
+    # -- data points with more attributes than this are dropped
+    maxAttributes: 20
+    # -- attribute values are cut to this many characters
+    maxAttributeValueLength: 256
