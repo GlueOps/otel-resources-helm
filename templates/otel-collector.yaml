@@ -28,8 +28,10 @@ spec:
       name: varlog
       readOnly: true
   config:
+    # Component types use the new upstream names (file_log, otlp_grpc, otlp_http, span_metrics); the old ones are only
+    # deprecated aliases. prometheusremotewrite keeps its old name: prometheus_remote_write needs collector >= 0.163.
     receivers:
-      filelog/multilang:
+      file_log/multilang:
         include:
           - /var/log/pods/*/*/*.log
         include_file_name: false
@@ -76,13 +78,13 @@ spec:
                 - targets:
                     - 0.0.0.0:8888
     exporters:
-      otlp/trace:
+      otlp_grpc/trace:
         endpoint: glueops-core-tempo-distributor.glueops-core-monitoring:4317
         headers:
           X-Scope-OrgID: "{{ .Values.captain_domain }}"
         tls:
           insecure: true
-      otlphttp/loki:
+      otlp_http/loki:
         headers:
           X-Scope-OrgID: "{{ .Values.captain_domain }}"
         logs_endpoint: http://loki-write-headless.glueops-core-monitoring:3100/otlp/v1/logs
@@ -102,7 +104,7 @@ spec:
         limit_percentage: 80
         spike_limit_percentage: 25
     connectors:
-      spanmetrics:
+      span_metrics:
         aggregation_temporality: AGGREGATION_TEMPORALITY_CUMULATIVE
         dimensions:
           - default: GET
@@ -111,7 +113,6 @@ spec:
           - name: http.target
           - name: net.peer.ip
           - name: http.client_ip
-        dimensions_cache_size: 1000
         exemplars:
           enabled: true
         metrics_expiration: 5m
@@ -121,6 +122,10 @@ spec:
           - service.name
           - telemetry.sdk.language
           - telemetry.sdk.name
+        # Circuit breaker on unique dimension combinations, per service (resource_metrics_key_attributes) and per
+        # collector pod (DaemonSet); combinations past it are folded into one series with otel.metric.overflow="true".
+        # Replaces the deprecated dimensions_cache_size.
+        aggregation_cardinality_limit: {{ .Values.collector.spanmetrics.aggregationCardinalityLimit }}
     service:
       telemetry:
         metrics:
@@ -136,10 +141,10 @@ spec:
             - memory_limiter
             - batch
           exporters:
-            - otlphttp/loki
+            - otlp_http/loki
           receivers:
             - otlp
-            - filelog/multilang
+            - file_log/multilang
         metrics:
           processors:
             - memory_limiter
@@ -151,14 +156,14 @@ spec:
             # so without it the collector answers OTLP metric exports with gRPC Unimplemented / HTTP 404.
             - otlp
             - prometheus
-            - spanmetrics
+            - span_metrics
         traces:
           processors:
             - memory_limiter
             - batch
           exporters:
-            - otlp/trace
-            - spanmetrics
+            - otlp_grpc/trace
+            - span_metrics
           receivers:
             - otlp
 

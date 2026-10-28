@@ -7,3 +7,7 @@ collector:
     requests:
       cpu: 50m
       memory: 256Mi
+  spanmetrics:
+    # -- max unique span-metric dimension combinations tracked per service, in each collector pod; extra combinations go
+    # to an otel.metric.overflow="true" series. 0 disables the limit.
+    aggregationCardinalityLimit: 1000
