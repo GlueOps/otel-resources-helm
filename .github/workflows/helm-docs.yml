@@ -15,9 +15,6 @@ jobs:
   helm-docs:
     runs-on: ubuntu-24.04
     steps:
-      # Inlined from GlueOps/github-workflows helm-docs.yml (repo archived June 2026),
-      # following the pattern in platform-helm-chart-platform: this repo's own
-      # README.md.gotmpl is authoritative instead of being overwritten by the workflow.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
