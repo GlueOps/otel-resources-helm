@@ -1,0 +1,14 @@
+{{ template "chart.header" . }}
+{{ template "chart.deprecationWarning" . }}
+
+{{ template "chart.badgesSection" . }}
+
+{{ template "chart.description" . }}
+
+## Install
+
+```sh
+helm install otel-resources oci://ghcr.io/glueops/otel-resources-helm/otel-resources --version {{ template "chart.version" . }}
+```
+
+{{ template "chart.valuesSection" . }}
