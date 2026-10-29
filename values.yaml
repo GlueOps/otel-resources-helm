@@ -10,4 +10,8 @@ collector:
   spanmetrics:
     # -- max unique span-metric dimension combinations tracked per service, in each collector pod; extra combinations go
     # to an otel.metric.overflow="true" series. 0 disables the limit.
-    aggregationCardinalityLimit: 1000
+    aggregationCardinalityLimit: 5000
+    # -- a dimension combination with no spans for this long is dropped, which frees its slot under
+    # aggregationCardinalityLimit and stops it being re-exported. Active combinations never expire. 0 keeps them until
+    # the pod restarts.
+    seriesExpiration: 5m
