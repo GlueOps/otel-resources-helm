@@ -28,3 +28,22 @@ collector:
     maxAttributes: 20
     # -- attribute values are cut to this many characters
     maxAttributeValueLength: 256
+  # cardinality_guardian processor (contrib >= 0.157, alpha) on the metrics apps send over OTLP, after cardinalityGuard.
+  cardinalityGuardian:
+    # -- off | report (a copy of the metrics goes through the processor, Prometheus gets them unchanged; offenders show
+    # in the otelcol_processor_cardinality_* self-metrics) | drop (flagged data points are dropped)
+    mode: report
+    # -- more new distinct values than this for one metric attribute than in the previous epoch flags the attribute
+    maxNewValuesPerEpoch: 100
+    # -- epoch length in seconds (minimum 10)
+    epochSeconds: 300
+    # -- attribute keys that are never flagged
+    neverDropLabels:
+      - http.status_code
+      - http.response.status_code
+      - http.method
+      - http.request.method
+      - http.route
+      - region
+    # -- max (metric, attribute) pairs tracked per collector pod; new pairs past it are not checked
+    maxTrackers: 10000
