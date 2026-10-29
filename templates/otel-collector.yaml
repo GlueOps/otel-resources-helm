@@ -115,7 +115,9 @@ spec:
           - name: http.client_ip
         exemplars:
           enabled: true
+        # metrics_expiration drops a whole service after it sends no spans; series_expiration drops single combinations.
         metrics_expiration: 5m
+        series_expiration: {{ .Values.collector.spanmetrics.seriesExpiration }}
         metrics_flush_interval: 15s
         namespace: span.metrics
         resource_metrics_key_attributes:

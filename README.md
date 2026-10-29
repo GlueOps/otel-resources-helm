@@ -18,4 +18,5 @@ helm install otel-resources oci://ghcr.io/glueops/otel-resources-helm/otel-resou
 | collector.memoryLimitMiB | int | `512` | container memory limit of each collector pod (DaemonSet). memory_limiter and GOMEMLIMIT are derived from it. |
 | collector.resources.requests.cpu | string | `"50m"` |  |
 | collector.resources.requests.memory | string | `"256Mi"` |  |
-| collector.spanmetrics.aggregationCardinalityLimit | int | `1000` | max unique span-metric dimension combinations tracked per service, in each collector pod; extra combinations go to an otel.metric.overflow="true" series. 0 disables the limit. |
+| collector.spanmetrics.aggregationCardinalityLimit | int | `5000` | max unique span-metric dimension combinations tracked per service, in each collector pod; extra combinations go to an otel.metric.overflow="true" series. 0 disables the limit. |
+| collector.spanmetrics.seriesExpiration | string | `"5m"` | a dimension combination with no spans for this long is dropped, which frees its slot under aggregationCardinalityLimit and stops it being re-exported. Active combinations never expire. 0 keeps them until the pod restarts. |
