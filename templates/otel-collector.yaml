@@ -175,7 +175,22 @@ metadata:
   namespace: glueops-core-monitoring
 spec:
   exporter:
-    endpoint: http://otel-collector-collector.glueops-core-monitoring.svc.cluster.local:4317
+    endpoint: http://otel-collector-collector.glueops-core-monitoring.svc.cluster.local:4318
+  env:
+    - name: OTEL_EXPORTER_OTLP_PROTOCOL
+      value: http/protobuf
+    # Pod stdout already reaches Loki via the filelog receiver; OTLP logs would duplicate every line.
+    - name: OTEL_LOGS_EXPORTER
+      value: none
+  # The Apache/nginx webserver module only has an OTLP/gRPC exporter, so it keeps the gRPC port.
+  apacheHttpd:
+    attrs:
+      - name: ApacheModuleOtelExporterEndpoint
+        value: http://otel-collector-collector.glueops-core-monitoring.svc.cluster.local:4317
+  nginx:
+    attrs:
+      - name: NginxModuleOtelExporterEndpoint
+        value: http://otel-collector-collector.glueops-core-monitoring.svc.cluster.local:4317
   propagators:
     - tracecontext
     - baggage
