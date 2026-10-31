@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/GlueOps/otel-resources-helm/compare/v0.1.2...v0.2.0) (2026-10-31)
+
+
+### Features
+
+* **collector:** rename the collector to otel-collector and export over OTLP/HTTP ([#11](https://github.com/GlueOps/otel-resources-helm/issues/11)) ([9b39c15](https://github.com/GlueOps/otel-resources-helm/commit/9b39c15bb0fd3ba27ee03a85c182ece3feff2449))
+
 ## [0.1.2](https://github.com/GlueOps/otel-resources-helm/compare/v0.1.1...v0.1.2) (2026-10-28)
 
 
