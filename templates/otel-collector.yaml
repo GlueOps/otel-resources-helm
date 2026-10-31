@@ -89,10 +89,18 @@ spec:
         headers:
           X-Scope-OrgID: "{{ .Values.captain_domain }}"
         logs_endpoint: http://loki-write-headless.glueops-core-monitoring:3100/otlp/v1/logs
-      prometheusremotewrite:
-        endpoint: http://glueops-core-kps-prometheus.glueops-core-monitoring:9090/api/v1/write
+      # One exporter per Prometheus replica, addressed through the operator's headless Service: the shared ClusterIP
+      # Service would balance per connection and leave each replica with only part of the data.
+      {{- range $i, $endpoint := .Values.collector.remoteWriteEndpoints }}
+      prometheusremotewrite/{{ $i }}:
+        endpoint: {{ $endpoint }}
         target_info:
           enabled: true
+      {{- end }}
+      {{- if eq .Values.collector.cardinalityGuardian.mode "report" }}
+      # Sink of the report-only cardinality_guardian branch: it only needs the processor's self-metrics.
+      nop: {}
+      {{- end }}
     processors:
       batch:
         send_batch_max_size: 2048
@@ -104,7 +112,57 @@ spec:
         check_interval: 1s
         limit_percentage: 80
         spike_limit_percentage: 25
+      # Guards against cardinality bugs in tenant apps (OTLP metrics only). Data points carrying an ID- or URL-like
+      # attribute are dropped instead of having the attribute deleted: deleting it would collapse distinct series into
+      # duplicates with wrong values. The other data points of the same app and metric still go through.
+      transform/cardinality:
+        error_mode: ignore
+        metric_statements:
+          - context: datapoint
+            statements:
+              - set(cache["attributes"], Len(attributes))
+              - delete_matching_keys(attributes, {{ .Values.collector.cardinalityGuard.dropAttributeKeysRegex | quote }})
+              - set(attributes["glueops.cardinality_guard"], "drop") where Len(attributes) < cache["attributes"]
+              - truncate_all(attributes, {{ .Values.collector.cardinalityGuard.maxAttributeValueLength }})
+      filter/cardinality:
+        error_mode: ignore
+        metrics:
+          datapoint:
+            - attributes["glueops.cardinality_guard"] != nil
+            - Len(attributes) > {{ .Values.collector.cardinalityGuard.maxAttributes }}
+      {{- with .Values.collector.cardinalityGuardian }}
+      {{- if ne .mode "off" }}
+      # Flags a (metric, attribute) whose distinct values grow by more than max_cardinality_delta_per_epoch compared
+      # with the previous epoch. It catches sudden explosions, not a steady leak, and every attribute starts from 0 at
+      # pod start, so for the first epoch any attribute with more distinct values than the limit is flagged.
+      # tag_only (adds otel.metric.overflow=true) is the only mode that applies to cumulative sums and histograms, which
+      # most SDKs send; strip_and_reaggregate and overflow_attribute fall back to it for those types.
+      cardinality_guardian:
+        enforcement_mode: tag_only
+        max_cardinality_delta_per_epoch: {{ .maxNewValuesPerEpoch }}
+        epoch_duration_seconds: {{ .epochSeconds }}
+        never_drop_labels:
+          {{- toYaml .neverDropLabels | nindent 10 }}
+        top_offenders_count: 10
+        # Each tracked (metric, attribute) pair holds two HyperLogLog sketches (up to ~16KiB each once dense).
+        max_tracker_count: {{ .maxTrackers }}
+        estimated_cost_per_metric_month: 0
+        drop_log_max_per_epoch: 10
+      {{- end }}
+      {{- if eq .mode "drop" }}
+      # Also drops data points the app's own SDK put in its overflow stream (otel.metric.overflow=true).
+      filter/cardinality_guardian:
+        error_mode: ignore
+        metrics:
+          datapoint:
+            - attributes["otel.metric.overflow"] == true
+      {{- end }}
+      {{- end }}
     connectors:
+      {{- if eq .Values.collector.cardinalityGuardian.mode "report" }}
+      # Copy of the OTLP metrics for the report-only cardinality_guardian pipeline.
+      forward/cardinality_guardian: {}
+      {{- end }}
       span_metrics:
         aggregation_temporality: AGGREGATION_TEMPORALITY_CUMULATIVE
         dimensions:
@@ -116,7 +174,9 @@ spec:
           - name: http.client_ip
         exemplars:
           enabled: true
+        # metrics_expiration drops a whole service after it sends no spans; series_expiration drops single combinations.
         metrics_expiration: 5m
+        series_expiration: {{ .Values.collector.spanmetrics.seriesExpiration }}
         metrics_flush_interval: 15s
         namespace: span.metrics
         resource_metrics_key_attributes:
@@ -146,16 +206,49 @@ spec:
           receivers:
             - otlp
             - file_log/multilang
+        # Metrics sent by apps. The otlp receiver must be in a metrics pipeline: a receiver only serves the signals of
+        # the pipelines that reference it, so without it the collector answers OTLP metric exports with gRPC
+        # Unimplemented / HTTP 404.
+        metrics/otlp:
+          processors:
+            - memory_limiter
+            - transform/cardinality
+            - filter/cardinality
+            {{- if eq .Values.collector.cardinalityGuardian.mode "drop" }}
+            - cardinality_guardian
+            - filter/cardinality_guardian
+            {{- end }}
+            - batch
+          exporters:
+            {{- range $i, $_ := .Values.collector.remoteWriteEndpoints }}
+            - prometheusremotewrite/{{ $i }}
+            {{- end }}
+            {{- if eq .Values.collector.cardinalityGuardian.mode "report" }}
+            - forward/cardinality_guardian
+            {{- end }}
+          receivers:
+            - otlp
+        {{- if eq .Values.collector.cardinalityGuardian.mode "report" }}
+        # Report only: cardinality_guardian sees a copy of the OTLP metrics and its tags are discarded, so what reaches
+        # Prometheus is unchanged. Offenders show in otelcol_processor_cardinality_* self-metrics.
+        metrics/cardinality_guardian:
+          processors:
+            - cardinality_guardian
+          exporters:
+            - nop
+          receivers:
+            - forward/cardinality_guardian
+        {{- end }}
+        # The collector's own metrics and the span metrics (bounded by span_metrics.aggregation_cardinality_limit).
         metrics:
           processors:
             - memory_limiter
             - batch
           exporters:
-            - prometheusremotewrite
+            {{- range $i, $_ := .Values.collector.remoteWriteEndpoints }}
+            - prometheusremotewrite/{{ $i }}
+            {{- end }}
           receivers:
-            # otlp must be listed here too: a receiver only serves the signals of the pipelines that reference it,
-            # so without it the collector answers OTLP metric exports with gRPC Unimplemented / HTTP 404.
-            - otlp
             - prometheus
             - span_metrics
         traces:

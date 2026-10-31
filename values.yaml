@@ -10,4 +10,40 @@ collector:
   spanmetrics:
     # -- max unique span-metric dimension combinations tracked per service, in each collector pod; extra combinations go
     # to an otel.metric.overflow="true" series. 0 disables the limit.
-    aggregationCardinalityLimit: 1000
+    aggregationCardinalityLimit: 5000
+    # -- a dimension combination with no spans for this long is dropped, which frees its slot under
+    # aggregationCardinalityLimit and stops it being re-exported. Active combinations never expire. 0 keeps them until
+    # the pod restarts.
+    seriesExpiration: 5m
+  # -- Prometheus remote-write endpoints; every metric is written to each one. One per kube-prometheus-stack replica
+  # (pod DNS through the operator's headless prometheus-operated Service), so both replicas hold the full data.
+  remoteWriteEndpoints:
+    - http://prometheus-glueops-core-kps-prometheus-0.prometheus-operated.glueops-core-monitoring.svc:9090/api/v1/write
+    - http://prometheus-glueops-core-kps-prometheus-1.prometheus-operated.glueops-core-monitoring.svc:9090/api/v1/write
+  # Cardinality guards on the metrics apps send over OTLP (not on span metrics or the collector's own metrics).
+  cardinalityGuard:
+    # -- data points with an attribute key matching this are dropped: per-entity IDs and raw URLs as labels
+    dropAttributeKeysRegex: '(?i)^(.*[._-])?(user|session|request|trace|span|order|customer|cart|transaction|correlation|message)[._-]?id$|^(url\.(full|path|query)|http\.(url|target))$'
+    # -- data points with more attributes than this are dropped
+    maxAttributes: 20
+    # -- attribute values are cut to this many characters
+    maxAttributeValueLength: 256
+  # cardinality_guardian processor (contrib >= 0.157, alpha) on the metrics apps send over OTLP, after cardinalityGuard.
+  cardinalityGuardian:
+    # -- off | report (a copy of the metrics goes through the processor, Prometheus gets them unchanged; offenders show
+    # in the otelcol_processor_cardinality_* self-metrics) | drop (flagged data points are dropped)
+    mode: report
+    # -- more new distinct values than this for one metric attribute than in the previous epoch flags the attribute
+    maxNewValuesPerEpoch: 100
+    # -- epoch length in seconds (minimum 10)
+    epochSeconds: 300
+    # -- attribute keys that are never flagged
+    neverDropLabels:
+      - http.status_code
+      - http.response.status_code
+      - http.method
+      - http.request.method
+      - http.route
+      - region
+    # -- max (metric, attribute) pairs tracked per collector pod; new pairs past it are not checked
+    maxTrackers: 10000
