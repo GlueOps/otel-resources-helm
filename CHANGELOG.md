@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.0](https://github.com/GlueOps/otel-resources-helm/compare/v0.1.2...v1.0.0) (2026-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **instrumentation:** rename the platform Instrumentation to default-unpinned ([#13](https://github.com/GlueOps/otel-resources-helm/issues/13))
+
+### Features
+
+* **collector:** rename the collector to otel-collector and export over OTLP/HTTP ([#11](https://github.com/GlueOps/otel-resources-helm/issues/11)) ([9b39c15](https://github.com/GlueOps/otel-resources-helm/commit/9b39c15bb0fd3ba27ee03a85c182ece3feff2449))
+* **instrumentation:** rename the platform Instrumentation to default-unpinned ([#13](https://github.com/GlueOps/otel-resources-helm/issues/13)) ([0946589](https://github.com/GlueOps/otel-resources-helm/commit/09465892ede5e04239162595388b7b787cdfafd9))
+
 ## [0.1.2](https://github.com/GlueOps/otel-resources-helm/compare/v0.1.1...v0.1.2) (2026-10-28)
 
 
