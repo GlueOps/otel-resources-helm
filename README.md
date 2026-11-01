@@ -29,3 +29,9 @@ helm install otel-resources oci://ghcr.io/glueops/otel-resources-helm/otel-resou
 | collector.resources.requests.memory | string | `"256Mi"` |  |
 | collector.spanmetrics.aggregationCardinalityLimit | int | `5000` | max unique span-metric dimension combinations tracked per service, in each collector pod; extra combinations go to an otel.metric.overflow="true" series. 0 disables the limit. |
 | collector.spanmetrics.seriesExpiration | string | `"5m"` | a dimension combination with no spans for this long is dropped, which frees its slot under aggregationCardinalityLimit and stops it being re-exported. Active combinations never expire. 0 keeps them until the pod restarts. |
+| instrumentation.images.apacheHttpd | string | `"ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-apache-httpd:1.0.4"` | Apache module image, tag only |
+| instrumentation.images.dotnet | string | `"ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-dotnet:1.15.0"` | .NET agent image, tag only |
+| instrumentation.images.java | string | `"ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:2.28.1"` | Java agent image, tag only |
+| instrumentation.images.nginx | string | `"ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-apache-httpd:1.0.4"` | nginx module image, tag only (the Apache and nginx modules ship in the same image) |
+| instrumentation.images.nodejs | string | `"ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-nodejs:0.76.0"` | Node.js agent image, tag only |
+| instrumentation.images.python | string | `"ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-python:0.63b1"` | Python agent image, tag only |

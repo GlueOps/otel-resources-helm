@@ -47,3 +47,21 @@ collector:
       - region
     # -- max (metric, attribute) pairs tracked per collector pod; new pairs past it are not checked
     maxTrackers: 10000
+
+# Agent images of the platform Instrumentation (default-unpinned); agent versions change only when these are bumped.
+# Tag only, never tag@sha256: an image equal to the operator's default (which has a digest) is rewritten to the new
+# default on every operator upgrade. No breaking-version check applies, so read the agent's release notes when bumping.
+instrumentation:
+  images:
+    # -- Java agent image, tag only
+    java: ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:2.28.1
+    # -- Node.js agent image, tag only
+    nodejs: ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-nodejs:0.76.0
+    # -- Python agent image, tag only
+    python: ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-python:0.63b1
+    # -- .NET agent image, tag only
+    dotnet: ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-dotnet:1.15.0
+    # -- Apache module image, tag only
+    apacheHttpd: ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-apache-httpd:1.0.4
+    # -- nginx module image, tag only (the Apache and nginx modules ship in the same image)
+    nginx: ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-apache-httpd:1.0.4

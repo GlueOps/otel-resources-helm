@@ -265,7 +265,8 @@ spec:
 apiVersion: opentelemetry.io/v1alpha1
 kind: Instrumentation
 metadata:
-  name: glueops-instrumentation
+  # Unpinned for developers: the platform bumps these agent images on purpose (values.yaml); prod workloads should pin their own.
+  name: default-unpinned
   namespace: glueops-core-monitoring
 spec:
   exporter:
@@ -276,12 +277,22 @@ spec:
     # Pod stdout already reaches Loki via the filelog receiver; OTLP logs would duplicate every line.
     - name: OTEL_LOGS_EXPORTER
       value: none
+  java:
+    image: {{ .Values.instrumentation.images.java }}
+  nodejs:
+    image: {{ .Values.instrumentation.images.nodejs }}
+  python:
+    image: {{ .Values.instrumentation.images.python }}
+  dotnet:
+    image: {{ .Values.instrumentation.images.dotnet }}
   # The Apache/nginx webserver module only has an OTLP/gRPC exporter, so it keeps the gRPC port.
   apacheHttpd:
+    image: {{ .Values.instrumentation.images.apacheHttpd }}
     attrs:
       - name: ApacheModuleOtelExporterEndpoint
         value: http://otel-collector.glueops-core-monitoring.svc.cluster.local:4317
   nginx:
+    image: {{ .Values.instrumentation.images.nginx }}
     attrs:
       - name: NginxModuleOtelExporterEndpoint
         value: http://otel-collector.glueops-core-monitoring.svc.cluster.local:4317
