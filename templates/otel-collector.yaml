@@ -265,7 +265,8 @@ spec:
 apiVersion: opentelemetry.io/v1alpha1
 kind: Instrumentation
 metadata:
-  name: glueops-instrumentation
+  # No images are set, so agents follow the operator's defaults and change on platform upgrades; prod workloads should pin their own.
+  name: default-unpinned
   namespace: glueops-core-monitoring
 spec:
   exporter:
