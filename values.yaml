@@ -7,6 +7,13 @@ collector:
     requests:
       cpu: 50m
       memory: 256Mi
+  # Retry and queue of the trace exporter to Tempo, for riding out a Tempo/Kafka outage.
+  traceExport:
+    # -- how long a failed trace batch is retried before it is dropped
+    retryMaxElapsedTime: 10m
+    # -- in-memory queue cap in MiB of serialized spans (in-memory size is a few times larger); keep it well under
+    # memoryLimitMiB
+    queueMiB: 32
   spanmetrics:
     # -- max unique span-metric dimension combinations tracked per service, in each collector pod; extra combinations go
     # to an otel.metric.overflow="true" series. 0 disables the limit.
