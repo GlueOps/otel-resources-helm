@@ -29,6 +29,8 @@ helm install otel-resources oci://ghcr.io/glueops/otel-resources-helm/otel-resou
 | collector.resources.requests.memory | string | `"256Mi"` |  |
 | collector.spanmetrics.aggregationCardinalityLimit | int | `5000` | max unique span-metric dimension combinations tracked per service, in each collector pod; extra combinations go to an otel.metric.overflow="true" series. 0 disables the limit. |
 | collector.spanmetrics.seriesExpiration | string | `"5m"` | a dimension combination with no spans for this long is dropped, which frees its slot under aggregationCardinalityLimit and stops it being re-exported. Active combinations never expire. 0 keeps them until the pod restarts. |
+| collector.traceExport.queueMiB | int | `32` | in-memory queue cap in MiB of serialized spans (in-memory size is a few times larger); keep it well under memoryLimitMiB |
+| collector.traceExport.retryMaxElapsedTime | string | `"10m"` | how long a failed trace batch is retried before it is dropped |
 | instrumentation.images.apacheHttpd | string | `"ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-apache-httpd:1.0.4"` | Apache module image, tag only |
 | instrumentation.images.dotnet | string | `"ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-dotnet:1.15.0"` | .NET agent image, tag only |
 | instrumentation.images.java | string | `"ghcr.repo.gpkg.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:2.28.1"` | Java agent image, tag only |
