@@ -22,6 +22,28 @@ collector:
     # aggregationCardinalityLimit and stops it being re-exported. Active combinations never expire. 0 keeps them until
     # the pod restarts.
     seriesExpiration: 5m
+  # Copy of the SERVER spans, stripped to their client IP, to a Kafka topic for ip-agg-streams, which counts requests
+  # per client IP per day and writes only the day's top IPs to Prometheus. Off by default. The default broker is Tempo's single broker, which
+  # already carries all spans; a Kafka outage then delays both Tempo and this copy.
+  ipAggKafka:
+    # -- also export spans to Kafka for ip-agg-streams
+    enabled: false
+    # -- Kafka brokers
+    brokers:
+      - glueops-core-tempo-kafka.glueops-core-monitoring.svc.cluster.local:9092
+    # -- topic ip-agg-streams reads (create it with enough partitions first; ip-agg-streams' init container does)
+    topic: otlp-spans-ip
+    # -- otlp_proto (smaller) or otlp_json; must match ip-agg-streams' INPUT_FORMAT
+    encoding: otlp_proto
+    # -- in-memory queue cap in MiB for the Kafka exporter; spans past it are dropped for this copy only
+    queueMiB: 16
+    # -- span attributes kept on the copy (the client IP, in ip-agg-streams' IP_ATTRIBUTES order). Every other span
+    # attribute (http.target, http.route, http.method, ...), the span name, span events and all resource and scope
+    # attributes are dropped before Kafka; Tempo still gets the full spans.
+    keepAttributes:
+      - client.address
+      - http.client_ip
+      - net.peer.ip
   # -- Prometheus remote-write endpoints; every metric is written to each one. One per kube-prometheus-stack replica
   # (pod DNS through the operator's headless prometheus-operated Service), so both replicas hold the full data.
   remoteWriteEndpoints:

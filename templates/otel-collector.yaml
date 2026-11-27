@@ -107,6 +107,27 @@ spec:
         target_info:
           enabled: true
       {{- end }}
+      {{- with .Values.collector.ipAggKafka }}
+      {{- if .enabled }}
+      # Copy of the spans for ip-agg-streams (per-IP counts kept out of Prometheus). Its own queue and a short retry, so
+      # a slow consumer side never holds the Tempo export back for long.
+      kafka/ip_agg:
+        brokers:
+          {{- toYaml .brokers | nindent 10 }}
+        traces:
+          topic: {{ .topic }}
+          encoding: {{ .encoding }}
+        producer:
+          compression: lz4
+        retry_on_failure:
+          enabled: true
+          max_elapsed_time: 2m
+        sending_queue:
+          enabled: true
+          sizer: bytes
+          queue_size: {{ mul .queueMiB 1048576 }}
+      {{- end }}
+      {{- end }}
       {{- if eq .Values.collector.cardinalityGuardian.mode "report" }}
       # Sink of the report-only cardinality_guardian branch: it only needs the processor's self-metrics.
       nop: {}
@@ -168,7 +189,41 @@ spec:
             - attributes["otel.metric.overflow"] == true
       {{- end }}
       {{- end }}
+      {{- with .Values.collector.ipAggKafka }}
+      {{- if .enabled }}
+      # The ip-agg-streams copy carries only what it counts: SERVER spans and their client IP. Runs in its own
+      # pipeline on a copy of the data, so Tempo and span_metrics still get the full spans.
+      filter/ip_agg:
+        error_mode: ignore
+        traces:
+          span:
+            - kind != SPAN_KIND_SERVER
+          spanevent:
+            - 'true'
+      transform/ip_agg:
+        error_mode: ignore
+        trace_statements:
+          - context: resource
+            statements:
+              - delete_matching_keys(attributes, ".*")
+          - context: scope
+            statements:
+              - delete_matching_keys(attributes, ".*")
+              - set(name, "")
+              - set(version, "")
+          - context: span
+            statements:
+              - keep_keys(attributes, {{ toJson .keepAttributes }})
+              # the span name often carries the route ("GET /api/items/{id}")
+              - set(name, "")
+              - set(status.message, "")
+      {{- end }}
+      {{- end }}
     connectors:
+      {{- if .Values.collector.ipAggKafka.enabled }}
+      # Hands the spans to the traces/ip_agg pipeline, which strips them before Kafka.
+      forward/ip_agg: {}
+      {{- end }}
       {{- if eq .Values.collector.cardinalityGuardian.mode "report" }}
       # Copy of the OTLP metrics for the report-only cardinality_guardian pipeline.
       forward/cardinality_guardian: {}
@@ -269,8 +324,23 @@ spec:
           exporters:
             - otlp_grpc/trace
             - span_metrics
+            {{- if .Values.collector.ipAggKafka.enabled }}
+            - forward/ip_agg
+            {{- end }}
           receivers:
             - otlp
+        {{- if .Values.collector.ipAggKafka.enabled }}
+        # Copy for ip-agg-streams: SERVER spans with only their client IP attribute.
+        traces/ip_agg:
+          receivers:
+            - forward/ip_agg
+          processors:
+            - filter/ip_agg
+            - transform/ip_agg
+            - batch
+          exporters:
+            - kafka/ip_agg
+        {{- end }}
 
 ---
 apiVersion: opentelemetry.io/v1alpha1
