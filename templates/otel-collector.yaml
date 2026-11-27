@@ -180,8 +180,9 @@ spec:
             name: http.method
           - name: http.status_code
           - name: http.target
-          - name: net.peer.ip
-          - name: http.client_ip
+          # Client IPs (net.peer.ip, http.client_ip, client.address) are not dimensions: every distinct IP is a new series
+          # (about 20 with the histogram buckets), so they filled Prometheus in the IP load test. They stay on the spans
+          # and logs, where Tempo and Loki search them.
         exemplars:
           enabled: true
         # metrics_expiration drops a whole service after it sends no spans; series_expiration drops single combinations.
