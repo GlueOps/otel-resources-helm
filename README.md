@@ -23,6 +23,12 @@ helm install otel-resources oci://ghcr.io/glueops/otel-resources-helm/otel-resou
 | collector.cardinalityGuardian.maxTrackers | int | `10000` | max (metric, attribute) pairs tracked per collector pod; new pairs past it are not checked |
 | collector.cardinalityGuardian.mode | string | `"report"` | off | report (a copy of the metrics goes through the processor, Prometheus gets them unchanged; offenders show in the otelcol_processor_cardinality_* self-metrics) | drop (flagged data points are dropped) |
 | collector.cardinalityGuardian.neverDropLabels | list | `["http.status_code","http.response.status_code","http.method","http.request.method","http.route","region"]` | attribute keys that are never flagged |
+| collector.ipAggKafka.brokers | list | `["glueops-core-tempo-kafka.glueops-core-monitoring.svc.cluster.local:9092"]` | Kafka brokers |
+| collector.ipAggKafka.enabled | bool | `false` | also export spans to Kafka for ip-agg-streams |
+| collector.ipAggKafka.encoding | string | `"otlp_proto"` | otlp_proto (smaller) or otlp_json; must match ip-agg-streams' INPUT_FORMAT |
+| collector.ipAggKafka.keepAttributes | list | `["client.address","http.client_ip","net.peer.ip"]` | span attributes kept on the copy (the client IP, in ip-agg-streams' IP_ATTRIBUTES order). Every other span attribute (http.target, http.route, http.method, ...), the span name, span events and all resource and scope attributes are dropped before Kafka; Tempo still gets the full spans. |
+| collector.ipAggKafka.queueMiB | int | `16` | in-memory queue cap in MiB for the Kafka exporter; spans past it are dropped for this copy only |
+| collector.ipAggKafka.topic | string | `"otlp-spans-ip"` | topic ip-agg-streams reads (create it with enough partitions first; ip-agg-streams' init container does) |
 | collector.memoryLimitMiB | int | `512` | container memory limit of each collector pod (DaemonSet). memory_limiter and GOMEMLIMIT are derived from it. |
 | collector.remoteWriteEndpoints | list | `["http://prometheus-glueops-core-kps-prometheus-0.prometheus-operated.glueops-core-monitoring.svc:9090/api/v1/write","http://prometheus-glueops-core-kps-prometheus-1.prometheus-operated.glueops-core-monitoring.svc:9090/api/v1/write"]` | Prometheus remote-write endpoints; every metric is written to each one. One per kube-prometheus-stack replica (pod DNS through the operator's headless prometheus-operated Service), so both replicas hold the full data. |
 | collector.resources.requests.cpu | string | `"50m"` |  |
